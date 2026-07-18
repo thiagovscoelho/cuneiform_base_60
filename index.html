@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Convert non-negative decimal integers to Babylonian-style base 60 cuneiform numerals and back." />
+  <title>Decimal ↔ Cuneiform Base 60 Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Cuneiform&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5efe2;
+      --panel: rgba(255, 252, 245, 0.86);
+      --panel-solid: #fffdf8;
+      --ink: #2c251d;
+      --muted: #746b60;
+      --line: rgba(79, 61, 43, 0.18);
+      --accent: #8a4f24;
+      --accent-strong: #693815;
+      --accent-soft: #ead4bc;
+      --error: #9e2f28;
+      --shadow: 0 18px 50px rgba(72, 49, 26, 0.13);
+      --radius: 22px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #17120e;
+        --panel: rgba(34, 27, 21, 0.88);
+        --panel-solid: #211a15;
+        --ink: #f6eadb;
+        --muted: #c1b2a1;
+        --line: rgba(244, 224, 199, 0.15);
+        --accent: #e5a46e;
+        --accent-strong: #ffc18f;
+        --accent-soft: #4d3424;
+        --error: #ff8f86;
+        --shadow: 0 18px 50px rgba(0, 0, 0, 0.34);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(181, 116, 56, 0.18), transparent 34rem),
+        radial-gradient(circle at 90% 80%, rgba(118, 77, 39, 0.13), transparent 30rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 54px 0 64px;
+    }
+
+    header {
+      max-width: 800px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.25rem, 6vw, 4.7rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      max-width: 900px;
+    }
+
+    .intro {
+      margin: 18px 0 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+
+    .converter {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: stretch;
+      gap: 16px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) + 6px);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .pane {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-solid);
+    }
+
+    .pane-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    label {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: right;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 190px;
+      resize: vertical;
+      border: 0;
+      border-radius: 15px;
+      background: transparent;
+      color: var(--ink);
+      padding: 16px;
+      outline: 1px solid var(--line);
+      font: inherit;
+      line-height: 1.55;
+      transition: outline-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    textarea:focus {
+      outline-color: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+
+    #sexaInput {
+      font-family: "Noto Sans Cuneiform", sans-serif;
+      font-size: clamp(1.55rem, 4vw, 2.45rem);
+      line-height: 1.7;
+      letter-spacing: 0.035em;
+    }
+
+    textarea::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+
+    .status {
+      min-height: 1.35em;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .status.error { color: var(--error); }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--ink);
+      min-height: 40px;
+      padding: 9px 14px;
+      font: 600 0.86rem/1 Inter, sans-serif;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 56%, transparent);
+    }
+
+    button:active { transform: translateY(0); }
+
+    .swap-wrap {
+      display: grid;
+      place-items: center;
+    }
+
+    .swap {
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-size: 1.15rem;
+      box-shadow: 0 10px 24px rgba(90, 48, 20, 0.23);
+    }
+
+    .swap:hover { background: var(--accent-strong); }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 22px;
+      backdrop-filter: blur(12px);
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 1.08rem;
+    }
+
+    .card p,
+    .card li {
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.92rem;
+    }
+
+    .card ol { margin: 0; padding-left: 1.25rem; }
+    .card li + li { margin-top: 8px; }
+
+    .example {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 11px 13px;
+      border-radius: 13px;
+      background: color-mix(in srgb, var(--accent-soft) 48%, transparent);
+      color: var(--ink);
+      font-family: "Noto Sans Cuneiform", sans-serif;
+      font-size: 1.45rem;
+    }
+
+    details { margin-top: 22px; }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      user-select: none;
+    }
+
+    .numeral-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .numeral {
+      display: grid;
+      gap: 5px;
+      place-items: center;
+      min-height: 78px;
+      padding: 10px 6px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-solid);
+    }
+
+    .numeral .value {
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .numeral .glyph {
+      font-family: "Noto Sans Cuneiform", sans-serif;
+      font-size: 1.65rem;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 800px) {
+      .shell { padding-top: 34px; }
+      .converter { grid-template-columns: 1fr; }
+      .swap-wrap { min-height: 48px; }
+      .swap { transform: rotate(90deg); }
+      .swap:hover { transform: rotate(90deg) translateY(-1px); }
+      .info-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">Sexagenary numeral tool</p>
+      <h1>Decimal ↔ Cuneiform Base 60</h1>
+      <p class="intro">Convert non-negative integers in either direction. Decimal-to-base-60 output is always space-separated; cuneiform input may be spaced or completely unspaced.</p>
+    </header>
+
+    <section class="converter" aria-label="Number converter">
+      <div class="pane">
+        <div class="pane-head">
+          <label for="decimalInput">Decimal integer</label>
+          <span class="hint">Arbitrary size</span>
+        </div>
+        <textarea id="decimalInput" inputmode="numeric" spellcheck="false" autocomplete="off" placeholder="Example: 3600">3600</textarea>
+        <p id="decimalStatus" class="status" aria-live="polite"></p>
+        <div class="actions">
+          <button type="button" id="decimalCopy">Copy decimal</button>
+          <button type="button" id="decimalClear">Clear</button>
+        </div>
+      </div>
+
+      <div class="swap-wrap">
+        <button type="button" class="swap" id="swapButton" aria-label="Swap the two values" title="Swap values">⇄</button>
+      </div>
+
+      <div class="pane">
+        <div class="pane-head">
+          <label for="sexaInput">Cuneiform base 60</label>
+          <span class="hint">Spaces optional when reading</span>
+        </div>
+        <textarea id="sexaInput" spellcheck="false" autocomplete="off" placeholder="𒐕 𒑊 𒑊">𒐕 𒑊 𒑊</textarea>
+        <p id="sexaStatus" class="status" aria-live="polite"></p>
+        <div class="actions">
+          <button type="button" id="sexaCopy">Copy cuneiform</button>
+          <button type="button" id="sexaClear">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-grid">
+      <article class="card">
+        <h2>How it reads unspaced text</h2>
+        <p>The parser tries the longest valid numeral first. That lets a two-sign digit such as 11 be recognized as one base-60 place rather than as separate digits 10 and 1.</p>
+        <span class="example" aria-label="Example cuneiform number">𒐕𒑊𒑊</span>
+      </article>
+
+      <article class="card">
+        <h2>Place-value rule</h2>
+        <ol>
+          <li>Each cuneiform numeral represents one digit from 0 through 59.</li>
+          <li>Moving one place left multiplies the value by 60.</li>
+          <li>For example, <strong>1 · 60² + 0 · 60 + 0 = 3600</strong>.</li>
+        </ol>
+      </article>
+    </section>
+
+    <details class="card">
+      <summary>Show all 60 numeral values</summary>
+      <div class="numeral-grid" id="numeralGrid"></div>
+    </details>
+  </main>
+
+  <script>
+    "use strict";
+
+    const NUMERALS = [
+      "𒑊", "𒐕", "𒐖", "𒐗", "𒐼", "𒐙", "𒐚", "𒑂", "𒑄", "𒑆",
+      "𒌋", "𒌋𒐕", "𒌋𒐖", "𒌋𒐗", "𒌋𒐼", "𒌋𒐙", "𒌋𒐚", "𒌋𒑂", "𒌋𒑄", "𒌋𒑆",
+      "𒎙", "𒎙𒐕", "𒎙𒐖", "𒎙𒐗", "𒎙𒐼", "𒎙𒐙", "𒎙𒐚", "𒎙𒑂", "𒎙𒑄", "𒎙𒑆",
+      "𒌍", "𒌍𒐕", "𒌍𒐖", "𒌍𒐗", "𒌍𒐼", "𒌍𒐙", "𒌍𒐚", "𒌍𒑂", "𒌍𒑄", "𒌍𒑆",
+      "𒐏", "𒐏𒐕", "𒐏𒐖", "𒐏𒐗", "𒐏𒐼", "𒐏𒐙", "𒐏𒐚", "𒐏𒑂", "𒐏𒑄", "𒐏𒑆",
+      "𒐐", "𒐐𒐕", "𒐐𒐖", "𒐐𒐗", "𒐐𒐼", "𒐐𒐙", "𒐐𒐚", "𒐐𒑂", "𒐐𒑄", "𒐐𒑆"
+    ];
+
+    const VALUE_BY_NUMERAL = new Map(NUMERALS.map((glyph, value) => [glyph, value]));
+    const TOKENS_LONGEST_FIRST = NUMERALS
+      .map((glyph, value) => ({ glyph, value }))
+      .sort((a, b) => b.glyph.length - a.glyph.length || b.value - a.value);
+
+    const decimalInput = document.getElementById("decimalInput");
+    const sexaInput = document.getElementById("sexaInput");
+    const decimalStatus = document.getElementById("decimalStatus");
+    const sexaStatus = document.getElementById("sexaStatus");
+
+    let activeSide = "decimal";
+
+    function decimalToSexagenary(raw) {
+      const text = raw.trim();
+      if (!text) return { output: "", message: "" };
+      if (!/^\+?\d+$/.test(text)) {
+        throw new Error("Enter a non-negative whole decimal number using digits 0–9.");
+      }
+
+      let value = BigInt(text);
+      if (value === 0n) return { output: NUMERALS[0], message: "1 base-60 place" };
+
+      const digits = [];
+      while (value > 0n) {
+        digits.push(Number(value % 60n));
+        value /= 60n;
+      }
+      digits.reverse();
+
+      return {
+        output: digits.map(digit => NUMERALS[digit]).join(" "),
+        message: `${digits.length} base-60 place${digits.length === 1 ? "" : "s"}`
+      };
+    }
+
+    function parseSpacedCuneiform(text) {
+      const pieces = text.trim().split(/\s+/u);
+      const digits = [];
+
+      for (const piece of pieces) {
+        if (!VALUE_BY_NUMERAL.has(piece)) {
+          throw new Error(`“${piece}” is not one of the 60 supported numerals.`);
+        }
+        digits.push(VALUE_BY_NUMERAL.get(piece));
+      }
+      return digits;
+    }
+
+    function parseUnspacedCuneiform(text) {
+      const compact = text.replace(/\s+/gu, "");
+      const memo = new Map();
+
+      function solve(index) {
+        if (index === compact.length) return [];
+        if (memo.has(index)) return memo.get(index);
+
+        for (const token of TOKENS_LONGEST_FIRST) {
+          if (compact.startsWith(token.glyph, index)) {
+            const rest = solve(index + token.glyph.length);
+            if (rest !== null) {
+              const result = [token.value, ...rest];
+              memo.set(index, result);
+              return result;
+            }
+          }
+        }
+
+        memo.set(index, null);
+        return null;
+      }
+
+      const result = solve(0);
+      if (result === null) {
+        throw new Error("The cuneiform text contains an unsupported sign or cannot be divided into valid numerals.");
+      }
+      return result;
+    }
+
+    function sexagenaryToDecimal(raw) {
+      const text = raw.trim();
+      if (!text) return { output: "", message: "" };
+
+      const hasSpaces = /\s/u.test(text);
+      const digits = hasSpaces ? parseSpacedCuneiform(text) : parseUnspacedCuneiform(text);
+
+      let value = 0n;
+      for (const digit of digits) {
+        value = value * 60n + BigInt(digit);
+      }
+
+      return {
+        output: value.toString(),
+        normalized: digits.map(digit => NUMERALS[digit]).join(" "),
+        message: `${digits.length} base-60 place${digits.length === 1 ? "" : "s"}`
+      };
+    }
+
+    function setStatus(element, message, isError = false) {
+      element.textContent = message;
+      element.classList.toggle("error", isError);
+    }
+
+    function updateFromDecimal() {
+      activeSide = "decimal";
+      try {
+        const result = decimalToSexagenary(decimalInput.value);
+        sexaInput.value = result.output;
+        setStatus(decimalStatus, result.message);
+        setStatus(sexaStatus, result.output ? "Space-separated output" : "");
+      } catch (error) {
+        sexaInput.value = "";
+        setStatus(decimalStatus, error.message, true);
+        setStatus(sexaStatus, "");
+      }
+    }
+
+    function updateFromSexagenary() {
+      activeSide = "sexa";
+      try {
+        const result = sexagenaryToDecimal(sexaInput.value);
+        decimalInput.value = result.output;
+        setStatus(sexaStatus, result.message);
+        setStatus(decimalStatus, result.output ? `Normalized: ${result.normalized}` : "");
+      } catch (error) {
+        decimalInput.value = "";
+        setStatus(sexaStatus, error.message, true);
+        setStatus(decimalStatus, "");
+      }
+    }
+
+    async function copyText(text, button) {
+      if (!text.trim()) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = button.textContent;
+        button.textContent = "Copied";
+        setTimeout(() => { button.textContent = original; }, 1100);
+      } catch {
+        const helper = document.createElement("textarea");
+        helper.value = text;
+        helper.setAttribute("readonly", "");
+        helper.style.position = "fixed";
+        helper.style.opacity = "0";
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+      }
+    }
+
+    decimalInput.addEventListener("input", updateFromDecimal);
+    sexaInput.addEventListener("input", updateFromSexagenary);
+
+    document.getElementById("decimalCopy").addEventListener("click", event => {
+      copyText(decimalInput.value, event.currentTarget);
+    });
+
+    document.getElementById("sexaCopy").addEventListener("click", event => {
+      copyText(sexaInput.value, event.currentTarget);
+    });
+
+    document.getElementById("decimalClear").addEventListener("click", () => {
+      decimalInput.value = "";
+      updateFromDecimal();
+      decimalInput.focus();
+    });
+
+    document.getElementById("sexaClear").addEventListener("click", () => {
+      sexaInput.value = "";
+      updateFromSexagenary();
+      sexaInput.focus();
+    });
+
+    document.getElementById("swapButton").addEventListener("click", () => {
+      if (activeSide === "decimal") {
+        updateFromSexagenary();
+        sexaInput.focus();
+      } else {
+        updateFromDecimal();
+        decimalInput.focus();
+      }
+    });
+
+    const numeralGrid = document.getElementById("numeralGrid");
+    numeralGrid.innerHTML = NUMERALS.map((glyph, value) => `
+      <div class="numeral" title="${value}">
+        <span class="value">${value}</span>
+        <span class="glyph">${glyph}</span>
+      </div>
+    `).join("");
+
+    updateFromDecimal();
+  </script>
+</body>
+</html>

@@ -12,7 +12,7 @@
     :root {
       color-scheme: light dark;
       --bg: #f5efe2;
-      --panel: rgba(255, 252, 245, 0.86);
+      --panel: ##fffcf5;
       --panel-solid: #fffdf8;
       --ink: #2c251d;
       --muted: #746b60;
@@ -28,7 +28,7 @@
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #17120e;
-        --panel: rgba(34, 27, 21, 0.88);
+        --panel: #221B15;
         --panel-solid: #211a15;
         --ink: #f6eadb;
         --muted: #c1b2a1;
@@ -100,7 +100,8 @@
       border-radius: calc(var(--radius) + 6px);
       background: var(--panel);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(16px);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
 
     .pane {
